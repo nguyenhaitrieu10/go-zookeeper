@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"strings"
 )
 
 var (
@@ -11,37 +10,7 @@ var (
 	INVALID_IP_LIST = errors.New("Invalid ip list format")
 )
 
-func concatString(strList []string) string {
-	return strings.Join(strList, "|")
-}
-
-func splitString(str string) []string {
-	return strings.Split(str, "|")
-}
-
-func diff2Sets(l1 []string, l2 []string) (needDeleteList []string, needCreateList []string) {
-	s := make(map[string]bool)
-
-	for _, e := range l1 {
-		s[e] = true
-	}
-
-	for _, e := range l2 {
-		if !s[e] {
-			needCreateList = append(needCreateList, e)
-		}
-		s[e] = false
-	}
-
-	for i, v := range s {
-		if v {
-			needDeleteList = append(needDeleteList, i)
-		}
-	}
-	return needDeleteList, needCreateList
-}
-
-func createDomain(database *sql.DB, domain string, ip []string) error {
+func createDomain(database *sql.DB, domain string, ip string) error {
 	check := validateDomainFormat(domain)
 	if !check {
 		return INVALID_DOMAIN
@@ -51,7 +20,7 @@ func createDomain(database *sql.DB, domain string, ip []string) error {
 	if err != nil {
 		return err
 	}
-	_, err = statement.Exec(domain, concatString(ip))
+	_, err = statement.Exec(domain, ip)
 	return err
 }
 
@@ -110,6 +79,22 @@ func getDomainIP(database *sql.DB, domain string) (string, error) {
 	return ipList, nil
 }
 
-//func getCurrentDNS(database *sql.DB) error {
-//
-//}
+func getCurrentDNS(database *sql.DB) (map[string]string, error) {
+	rows, err := database.Query("SELECT domain, ip FROM dns")
+	if err != nil {
+		return nil, err
+	}
+
+	dns := make(map[string]string)
+	var domain string
+	var ip string
+	for rows.Next() {
+		err = rows.Scan(&domain, &ip)
+		if err != nil {
+			return nil, err
+		}
+		dns[domain] = ip
+	}
+
+	return dns, nil
+}
